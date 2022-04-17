@@ -1,4 +1,3 @@
-import os
 import sqlite3
 import string, json
 import requests
