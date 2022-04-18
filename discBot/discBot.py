@@ -71,14 +71,15 @@ def Twitch_checkUser():
         stream = "OFFLINE"
         return stream
 
-@tasks.loop(seconds=30)
+@tasks.loop(seconds=900)
 async def youtubeNotifications():
     global videoDefaultName
-    videoId = get_video_from_channel()
+    video = get_video_from_channel()
     channel = bot.get_channel(965682429455106108)
-    if videoId != videoDefaultName:
-        videoDefaultName = videoId
-        await channel.send(f'@everyone в вышло новое видео, скорее смотреть! ----> {videoId}')
+    if video != videoDefaultName:
+        videoDefaultName = video
+        await channel.send(f'@everyone в вышло новое видео, скорее смотреть! ----> {video}')
+
 
 # создаем бд и запускаем уведомления твича
 @bot.event
