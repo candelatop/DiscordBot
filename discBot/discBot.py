@@ -1,15 +1,16 @@
 import sqlite3
 import string, json
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 from discord import Embed
 import discord
 from discord.utils import get
 from discord.ext import commands, tasks
-from secret import TwitchClientID, TwitchClientSecret, Channel, DiscordToken
+from secret import *
 from discord.ext.commands import command, has_permissions
 
 isLive = False
+videoDefaultName = 0
 # чтобы не было спама
 
 bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
@@ -17,7 +18,27 @@ bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
 # твич
 twitch_client_id = TwitchClientID
 twitch_client_secret = TwitchClientSecret
-channel = Channel
+
+# ютуб
+youtube_client_id = YtClientId
+youtube_client_secret = YtClientSec
+
+# Используя АПИ Ютуба подключаемся к нему и парсим запросы
+def get_video_from_channel(channel_id="UCDVln2Hn5O93tHSSrjNjqgg"):
+    base_watch_link = 'https://www.youtube.com/watch?v='
+    base_search_url = 'https://www.googleapis.com/youtube/v3/search'
+    yt_info = base_search_url + f'?key={YtApiKey}&channelId={YtChannelId}&part=snippet,id&order=date&maxResults=1'
+    yt_info = requests.get(yt_info)
+    YoutubeParse =yt_info.json()
+
+    def get_videoId():
+        items = YoutubeParse['items']
+        for id in items:
+            videoId = id['id']['videoId']
+            return videoId
+
+    youtube_video = base_watch_link + get_videoId()
+    return youtube_video
 
 
 # Используя АПИ Твича подключаемся к нему и парсим запросы
@@ -35,7 +56,7 @@ def Twitch_checkUser():
         'Authorization': 'Bearer ' + keys['access_token']
     }
 
-    stream = requests.get('https://api.twitch.tv/helix/streams?user_login=' + channel, headers=headers)
+    stream = requests.get('https://api.twitch.tv/helix/streams?user_login=' + TwitchChannelName, headers=headers)
     stream_data = stream.json()
 
     if len(stream_data['data']) == 1:
@@ -50,6 +71,14 @@ def Twitch_checkUser():
         stream = "OFFLINE"
         return stream
 
+@tasks.loop(seconds=30)
+async def youtubeNotifications():
+    global videoDefaultName
+    videoId = get_video_from_channel()
+    channel = bot.get_channel(965682429455106108)
+    if videoId != videoDefaultName:
+        videoDefaultName = videoId
+        await channel.send(f'@everyone в вышло новое видео, скорее смотреть! ----> {videoId}')
 
 # создаем бд и запускаем уведомления твича
 @bot.event
@@ -61,10 +90,11 @@ async def on_ready():
     if base:
         print('DataBase connected...OK')
     twitchNotifications.start()
+    youtubeNotifications.start()
 
 
 # каждый 10 секунд делаем запрос на стрим
-@tasks.loop(seconds=10)
+@tasks.loop(seconds=30)
 async def twitchNotifications():
     global isLive
     stream = Twitch_checkUser()
