@@ -1,25 +1,26 @@
 import sqlite3
 import string, json
 import requests
+from datetime import datetime, timedelta
+from discord import Embed
 import discord
 from discord.utils import get
-from discord.ext import commands,tasks
-from secret import TwitchClientID, TwitchClientSecret,Channel, DiscordToken
+from discord.ext import commands, tasks
+from secret import TwitchClientID, TwitchClientSecret, Channel, DiscordToken
+from discord.ext.commands import command, has_permissions
 
-isLive=False
-#чтобы не было спама
+isLive = False
+# чтобы не было спама
 
 bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
 
-#твич
-twitch_client_id= TwitchClientID
-twitch_client_secret= TwitchClientSecret
+# твич
+twitch_client_id = TwitchClientID
+twitch_client_secret = TwitchClientSecret
 channel = Channel
 
 
-
-
-#Используя АПИ Твича подключаемся к нему и парсим запросы
+# Используя АПИ Твича подключаемся к нему и парсим запросы
 def Twitch_checkUser():
     body = {
         'client_id': twitch_client_id,
@@ -35,23 +36,22 @@ def Twitch_checkUser():
     }
 
     stream = requests.get('https://api.twitch.tv/helix/streams?user_login=' + channel, headers=headers)
-    stream_data = stream.json();
-
+    stream_data = stream.json()
 
     if len(stream_data['data']) == 1:
         data = stream_data['data'][0]
-        title=data['title']
-        streamer=data['user_name']
-        game=data['game_name']
-        thumbnail_url=data['thumbnail_url']
-        stream = (title,streamer,game,thumbnail_url)
+        title = data['title']
+        streamer = data['user_name']
+        game = data['game_name']
+        thumbnail_url = data['thumbnail_url']
+        stream = (title, streamer, game, thumbnail_url)
         return stream
     else:
         stream = "OFFLINE"
         return stream
 
 
-#создаем бд и запускаем уведомления твича
+# создаем бд и запускаем уведомления твича
 @bot.event
 async def on_ready():
     print('Я снова тут!')
@@ -63,19 +63,19 @@ async def on_ready():
     twitchNotifications.start()
 
 
-#каждый 10 секунд делаем запрос на стрим
+# каждый 10 секунд делаем запрос на стрим
 @tasks.loop(seconds=10)
 async def twitchNotifications():
     global isLive
-    stream=Twitch_checkUser()
+    stream = Twitch_checkUser()
     channel = bot.get_channel(965047886184341544)
-    if stream!="OFFLINE":
+    if stream != "OFFLINE":
         if isLive == False:
             isLive = True
             await channel.send('Дибил сейчас стримит! ')
     else:
-        if isLive ==True:
-            isLive=False
+        if isLive == True:
+            isLive = False
             await channel.send('Дибил сейчас отдыхает:) ')
 
 
@@ -97,12 +97,34 @@ async def twitchNotifications():
 #     # Tells the user it worked.
 #     await ctx.send(f"Added {twitch_name} for {ctx.author} to the notifications list.")
 
+numbers = ("1️⃣", "2⃣", "3⃣", "4⃣", "5⃣",
+		   "6⃣", "7⃣", "8⃣", "9⃣", "🔟")
+
+
+@bot.command()
+async def createPoll(ctx, question: str, *options):
+    if len(options) > 10:
+        await ctx.send(f'{ctx.author.mention}, максимальное количество опций = 10')
+    else:
+        embed = Embed(title="Poll",
+                      description=question,
+                      colour=ctx.author.colour,
+                      imestamp=datetime.utcnow())
+        fields = [("Опции", "\n".join([f"{numbers[idx]} {option}" for idx, option in enumerate(options)]), False),
+                  ("Инструкция", "Выберите реакцию для голосования!", False)]
+        for name, value, inline in fields:
+            embed.add_field(name=name, value=value, inline=inline)
+        message = await ctx.send(embed=embed)
+        for emoji in numbers[:len(options)]:
+            await message.add_reaction(emoji)
+
+
 # бот подключается к голосовому каналу
 @bot.command()
 async def join(ctx):
     global voice
     channel = ctx.message.author.voice.channel
-    voice=get(bot.voice_clients, guild=ctx.guild)
+    voice = get(bot.voice_clients, guild=ctx.guild)
 
     if voice and voice.is_connected():
         await voice.move_to(channel)
@@ -114,7 +136,7 @@ async def join(ctx):
 @bot.command()
 async def leave(ctx):
     channel = ctx.message.author.voice.channel
-    voice=get(bot.voice_clients, guild=ctx.guild)
+    voice = get(bot.voice_clients, guild=ctx.guild)
 
     if voice and voice.is_connected():
         await voice.disconnect()
@@ -124,18 +146,19 @@ async def leave(ctx):
 
 # выдача роли мута
 @bot.command()
-async def mute(ctx,member:discord.Member):
+async def mute(ctx, member: discord.Member):
     await ctx.message.delete()
-    mute = discord.utils.get(ctx.message.guild.roles,name='mute')
+    mute = discord.utils.get(ctx.message.guild.roles, name='mute')
     await member.add_roles(mute)
 
 
 # снятие роли мута
 @bot.command()
-async def unmute(ctx,member:discord.Member):
+async def unmute(ctx, member: discord.Member):
     await ctx.message.delete()
-    mute = discord.utils.get(ctx.message.guild.roles,name='mute')
+    mute = discord.utils.get(ctx.message.guild.roles, name='mute')
     await member.remove_roles(mute)
+
 
 # !youtube
 @bot.command()
@@ -143,11 +166,13 @@ async def youtube(ctx):
     author = ctx.message.author
     await ctx.send(f'{author.mention}, https://www.youtube.com/channel/UCDVln2Hn5O93tHSSrjNjqgg')
 
+
 # !vkgroup
 @bot.command()
 async def vkgroup(ctx):
     author = ctx.message.author
     await ctx.send(f'{author.mention}, https://vk.com/heckfystream')
+
 
 # !vk
 @bot.command()
@@ -155,11 +180,13 @@ async def vk(ctx):
     author = ctx.message.author
     await ctx.send(f'{author.mention},  https://vk.com/heckfysu')
 
+
 # !stream
 @bot.command()
 async def stream(ctx):
     author = ctx.message.author
     await ctx.send(f'{author.mention},  https://www.twitch.tv/heckfyrog')
+
 
 # !addons
 @bot.command()
@@ -179,7 +206,6 @@ async def info(ctx):
                    f'- ссылка на мои аддоны')
 
 
-
 # выдача роли фолловера
 role_id = 964547703482748959
 
@@ -192,6 +218,7 @@ async def on_member_join(member):
         if ch.name == 'основной':
             await bot.get_channel(ch.id).send(f'{member.mention}, круто что ты с нами в лс инфо')
 
+
 # проверка количества предупреждений !status
 @bot.command()
 async def status(ctx):
@@ -203,6 +230,7 @@ async def status(ctx):
         await ctx.send(f'{ctx.message.author.mention}, у Вас нет предупреждений!')
     else:
         await ctx.send(f'{ctx.message.author.mention}, количество Ваших предупреждений - {warning[1]}.')
+
 
 # модерация с использованием файла цензуры, файл to_json конвертирует тхт в джсон
 @bot.event
@@ -245,6 +273,7 @@ async def on_message(message):
             await message.author.ban(reason='Нарушение правил')
 
     await bot.process_commands(message)
+
 
 # обнуление предупреждений !reset
 @bot.command()
