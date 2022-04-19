@@ -10,7 +10,10 @@ from secret import *
 from discord.ext.commands import command, has_permissions
 
 isLive = False
+videoFalse = False
+vkFalse = False
 videoDefaultName = 0
+vkPostDefault = 0
 # чтобы не было спама
 
 bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
@@ -22,6 +25,25 @@ twitch_client_secret = TwitchClientSecret
 # ютуб
 youtube_client_id = YtClientId
 youtube_client_secret = YtClientSec
+
+
+def vk_post_check():
+
+    vk_public_link=f'https://vk.com/public{vk_group_id}?w=wall-{vk_group_id}_'
+    vk_default_request = f'https://api.vk.com/method/wall.get?owner_id=-{vk_group_id}&count=1&access_token={token_vk}&v=5.131'
+    vk = requests.get(vk_default_request)
+    vk_info = vk.json()
+    def get_post_link():
+        response = vk_info['response']['items']
+        for idx in response:
+            id=idx['id']
+            id = str(id)
+            return id
+
+    vkDefLink = vk_public_link + get_post_link()
+    return vkDefLink
+
+
 
 # Используя АПИ Ютуба подключаемся к нему и парсим запросы
 def get_video_from_channel(channel_id="UCDVln2Hn5O93tHSSrjNjqgg"):
@@ -71,16 +93,6 @@ def Twitch_checkUser():
         stream = "OFFLINE"
         return stream
 
-@tasks.loop(seconds=900)
-async def youtubeNotifications():
-    global videoDefaultName
-    video = get_video_from_channel()
-    channel = bot.get_channel(965682429455106108)
-    if video != videoDefaultName:
-        videoDefaultName = video
-        await channel.send(f'@everyone в вышло новое видео, скорее смотреть! ----> {video}')
-
-
 # создаем бд и запускаем уведомления твича
 @bot.event
 async def on_ready():
@@ -92,6 +104,31 @@ async def on_ready():
         print('DataBase connected...OK')
     twitchNotifications.start()
     youtubeNotifications.start()
+    vkNotifications.start()
+
+@tasks.loop(seconds=900)
+async def vkNotifications():
+    global vkPostDefault
+    post = vk_post_check()
+    channel = bot.get_channel(965047886184341544)
+    if post != vkPostDefault:
+            vkPostDefault = post
+            await channel.send(f'@everyone Вконтакте вышел новый пост! ----> {post}')
+
+
+@tasks.loop(seconds=900)
+async def youtubeNotifications():
+    global videoDefaultName, videoFalse
+    video = get_video_from_channel()
+    channel = bot.get_channel(965682429455106108)
+    if video != videoDefaultName:
+        if videoFalse == False:
+            videoFalse = True
+            videoDefaultName = video
+            await channel.send(f'@everyone в вышло новое видео, скорее смотреть! ----> {video}')
+    else:
+        if videoFalse == True:
+            videoFalse = False
 
 
 # каждый 10 секунд делаем запрос на стрим
@@ -107,7 +144,6 @@ async def twitchNotifications():
     else:
         if isLive == True:
             isLive = False
-            await channel.send('Дибил сейчас отдыхает:) ')
 
 
 # # Command to add Twitch usernames to the json.
