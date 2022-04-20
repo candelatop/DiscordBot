@@ -111,9 +111,15 @@ async def vkNotifications():
     global vkPostDefault
     post = vk_post_check()
     channel = bot.get_channel(965047886184341544)
-    if post != vkPostDefault:
-            vkPostDefault = post
-            await channel.send(f'@everyone Вконтакте вышел новый пост! ----> {post}')
+    with open('vk_post.txt') as json_file:
+        last_post = json.load(json_file)
+        if last_post != post:
+            if post != vkPostDefault:
+                with open('vk_post.txt', 'w') as outfile:
+                    json.dump(post, outfile)
+                    vkPostDefault = post
+                    await channel.send(f'@everyone Вконтакте вышел новый пост! ----> {post}')
+
 
 
 @tasks.loop(seconds=900)
@@ -121,14 +127,14 @@ async def youtubeNotifications():
     global videoDefaultName, videoFalse
     video = get_video_from_channel()
     channel = bot.get_channel(965682429455106108)
-    if video != videoDefaultName:
-        if videoFalse == False:
-            videoFalse = True
-            videoDefaultName = video
-            await channel.send(f'@everyone в вышло новое видео, скорее смотреть! ----> {video}')
-    else:
-        if videoFalse == True:
-            videoFalse = False
+    with open('yt_video.txt') as json_file:
+        last_video = json.load(json_file)
+        if last_video != video:
+            if video != videoDefaultName:
+                with open('yt_video.txt', 'w') as outfile:
+                    json.dump(video, outfile)
+                    videoDefaultName = video
+                    await channel.send(f'@everyone в вышло новое видео, скорее смотреть! ----> {video}')
 
 
 # каждый 10 секунд делаем запрос на стрим
