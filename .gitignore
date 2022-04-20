@@ -1,2 +1,5 @@
 /venv/
 /discBot/__pycache__
+/discBot/secret.py
+/discBot/vk_post.txt
+/discBot/yt_video.txt

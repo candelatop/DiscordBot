@@ -7,4 +7,4 @@ YtApiKey = "AIzaSyBc2YK5qus0lzlIcws8rc4uUfyJT3K6S4E"
 vk_group_id = '180466068'
 TwitchChannelName = 'clydeqt'
 token_vk = 'c0a9c2e6c0a9c2e6c0a9c2e65ec0d5fc99cc0a9c0a9c2e6a2f70c8834a33b002cdeee31'
-DiscordToken = 'OTY0MTM0NTcxMDA2Mzc4MDM0.YlgOSg.59tGQctfhy5f7iReiJ6hnCchJBk'
+DiscordToken = 'OTY0MTM0NTcxMDA2Mzc4MDM0.YlgOSg.lA3uk7wvoa_kXCjEhOvaAhS69e8'
