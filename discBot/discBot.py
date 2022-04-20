@@ -146,7 +146,7 @@ async def twitchNotifications():
     if stream != "OFFLINE":
         if isLive == False:
             isLive = True
-            await channel.send('Дибил сейчас стримит! ')
+            await channel.send(f'Дибил сейчас стримит, скорее залетай! ----> twitch.tv/{TwitchChannelName}')
     else:
         if isLive == True:
             isLive = False
@@ -219,6 +219,7 @@ async def leave(ctx):
 
 # выдача роли мута
 @bot.command()
+@has_permissions(MODERATE_MEMBERS=True)
 async def mute(ctx, member: discord.Member):
     await ctx.message.delete()
     mute = discord.utils.get(ctx.message.guild.roles, name='mute')
@@ -227,11 +228,16 @@ async def mute(ctx, member: discord.Member):
 
 # снятие роли мута
 @bot.command()
+@has_permissions(MODERATE_MEMBERS=True)
 async def unmute(ctx, member: discord.Member):
     await ctx.message.delete()
     mute = discord.utils.get(ctx.message.guild.roles, name='mute')
     await member.remove_roles(mute)
 
+@bot.command()
+async def donate(ctx):
+    author = ctx.message.author
+    await ctx.send(f'{author.mention}, https://www.donationalerts.com/r/heckfysu')
 
 # !youtube
 @bot.command()
@@ -276,16 +282,17 @@ async def info(ctx):
     await ctx.send(f'{author.mention}, команды бота:\n1) !stream - ссылка на стрим\n2) !vk - ссылка на '
                    f'мою страницу Вконтакте\n3) !vkgroup'
                    f' - ссылка на мою группу Вконтакте\n4) !youtube - ссылка на мой YouTube\n5) !addons '
-                   f'- ссылка на мои аддоны')
+                   f'- ссылка на мои аддоны\n6) !donate - ссылка на пожертвование мне\n7) !status узнать количество'
+                   f' предупреждений')
 
 
 # выдача роли фолловера
-role_id = 964547703482748959
+followerId = 964547703482748959
 
 
 @bot.event
 async def on_member_join(member):
-    await member.add_roles(member.guild.get_role(role_id))
+    await member.add_roles(member.guild.get_role(followerId))
     await member.send('Привет я тут присматриваю за порядком, если нужна информация то пиши !info')
     for ch in bot.get_guild(member.guild.id).channels:
         if ch.name == 'основной':
@@ -350,6 +357,7 @@ async def on_message(message):
 
 # обнуление предупреждений !reset
 @bot.command()
+@has_permissions(MODERATE_MEMBERS=True)
 async def reset(ctx):
     base.execute('DELETE FROM "{}" WHERE userid == ?'.format(ctx.message.guild.name),
                  (ctx.message.author.id,)).fetchone()
