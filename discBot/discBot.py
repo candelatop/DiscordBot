@@ -219,20 +219,26 @@ async def leave(ctx):
 
 # выдача роли мута
 @bot.command()
-@has_permissions(MODERATE_MEMBERS=True)
+# @has_permissions(manage_roles=True, ban_members=True)
 async def mute(ctx, member: discord.Member):
     await ctx.message.delete()
-    mute = discord.utils.get(ctx.message.guild.roles, name='mute')
-    await member.add_roles(mute)
+    role_members = discord.utils.get(ctx.guild.roles, name='фолловер')
+    role_muted = discord.utils.get(ctx.guild.roles, name='mute')
+    await member.add_roles(role_muted )
+    await member.remove_roles(role_members)
+    await ctx.send(f'{member.mention}, был замучен')
 
 
 # снятие роли мута
 @bot.command()
-@has_permissions(MODERATE_MEMBERS=True)
+# @has_permissions(MODERATE_MEMBERS=True)
 async def unmute(ctx, member: discord.Member):
     await ctx.message.delete()
-    mute = discord.utils.get(ctx.message.guild.roles, name='mute')
-    await member.remove_roles(mute)
+    role_members = discord.utils.get(ctx.guild.roles, name='фолловер')
+    role_muted = discord.utils.get(ctx.guild.roles, name='mute')
+    await member.remove_roles(role_muted)
+    await member.add_roles(role_members)
+    await ctx.send(f'{member.mention}, был размучен')
 
 @bot.command()
 async def donate(ctx):
@@ -277,11 +283,24 @@ async def addons(ctx):
 
 # !info
 @bot.command()
+async def admininfo(ctx):
+    author = ctx.message.author
+    await ctx.send(f'{author.mention}, команды бота для админа:\n1) !targetreset - удаление с выбранного'
+                   f' участника всех предупреждений\n2) !mute - выдача человеку роли мута+забирания роли фолловера'
+                   f'\n3) !unmute - выдача человеку роли фолловера и забирание роли мута'
+                   f'\n4) !youtube - ссылка на мой YouTube\n5) !addons '
+                   f'- ссылка на мои аддоны\n6) !donate - ссылка на пожертвование мне\n7) !status узнать количество'
+                   f' предупреждений')
+
+
+# !info
+@bot.command()
 async def info(ctx):
     author = ctx.message.author
     await ctx.send(f'{author.mention}, команды бота:\n1) !stream - ссылка на стрим\n2) !vk - ссылка на '
                    f'мою страницу Вконтакте\n3) !vkgroup'
-                   f' - ссылка на мою группу Вконтакте\n4) !youtube - ссылка на мой YouTube\n5) !addons '
+                   f' - ссылка на мою группу Вконтакте\n4) !createPoll - создание опроса(например - '
+                   f'!createPoll "Как у вас сегодня дела?" Супер Круто Отлично\n5) !addons '
                    f'- ссылка на мои аддоны\n6) !donate - ссылка на пожертвование мне\n7) !status узнать количество'
                    f' предупреждений')
 
@@ -357,12 +376,21 @@ async def on_message(message):
 
 # обнуление предупреждений !reset
 @bot.command()
-@has_permissions(MODERATE_MEMBERS=True)
+# @has_permissions(MODERATE_MEMBERS=True)
 async def reset(ctx):
     base.execute('DELETE FROM "{}" WHERE userid == ?'.format(ctx.message.guild.name),
                  (ctx.message.author.id,)).fetchone()
     base.commit()
     await ctx.channel.send(f'{ctx.author.mention}, твои предупреждения обнулены!')
+
+
+@bot.command()
+@has_permissions(moderate_roles=True, ban_members=True)
+async def targetreset(ctx, member: discord.Member):
+    base.execute('DELETE FROM "{}" WHERE userid == ?'.format(member.guild.name),
+                 (member.id,)).fetchone()
+    base.commit()
+    await ctx.channel.send(f'{member.mention} ваши предупреждения были обнулены')
 
 
 bot.run(DiscordToken)
