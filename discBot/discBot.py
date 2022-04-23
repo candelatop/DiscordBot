@@ -7,15 +7,15 @@ import discord
 from discord.utils import get
 from discord.ext import commands, tasks
 from secret import *
-from discord.ext.commands import command, has_permissions
+from discord.ext.commands import has_permissions, MissingPermissions
 
 isLive = False
-videoFalse = False
-vkFalse = False
 videoDefaultName = 0
 vkPostDefault = 0
 # чтобы не было спама
 
+
+# запуск бота
 bot = commands.Bot(command_prefix='!', intents=discord.Intents.all())
 
 # твич
@@ -27,6 +27,7 @@ youtube_client_id = YtClientId
 youtube_client_secret = YtClientSec
 
 
+# функция проверки апи вк
 def vk_post_check():
 
     vk_public_link=f'https://vk.com/public{vk_group_id}?w=wall-{vk_group_id}_'
@@ -106,6 +107,8 @@ async def on_ready():
     youtubeNotifications.start()
     vkNotifications.start()
 
+
+# каждые 15 минут запрос на вк апи, мб надо реализовать вебхуки
 @tasks.loop(seconds=900)
 async def vkNotifications():
     global vkPostDefault
@@ -121,7 +124,7 @@ async def vkNotifications():
                     await channel.send(f'@everyone Вконтакте вышел новый пост! ----> {post}')
 
 
-
+# каждые 15 минут запрос на ютуб апи, мб надо реализовать вебхуки
 @tasks.loop(seconds=900)
 async def youtubeNotifications():
     global videoDefaultName, videoFalse
@@ -137,7 +140,7 @@ async def youtubeNotifications():
                     await channel.send(f'@everyone в вышло новое видео, скорее смотреть! ----> {video}')
 
 
-# каждый 10 секунд делаем запрос на стрим
+# каждый 30 секунд делаем запрос на стрим
 @tasks.loop(seconds=30)
 async def twitchNotifications():
     global isLive
@@ -146,7 +149,8 @@ async def twitchNotifications():
     if stream != "OFFLINE":
         if isLive == False:
             isLive = True
-            await channel.send(f'Дибил сейчас стримит, скорее залетай! ----> twitch.tv/{TwitchChannelName}')
+            await channel.send(f'@everyone {TwitchChannelName} сейчас стримит, скорее '
+                               f'залетай! ----> https://www.twitch.tv/{TwitchChannelName}')
     else:
         if isLive == True:
             isLive = False
@@ -170,16 +174,15 @@ async def twitchNotifications():
 #     # Tells the user it worked.
 #     await ctx.send(f"Added {twitch_name} for {ctx.author} to the notifications list.")
 
-numbers = ("1️⃣", "2⃣", "3⃣", "4⃣", "5⃣",
-		   "6⃣", "7⃣", "8⃣", "9⃣", "🔟")
+numbers = ("1️⃣", "2⃣", "3⃣", "4⃣", "5⃣","6⃣", "7⃣", "8⃣", "9⃣", "🔟")
 
-
+# создание опросов
 @bot.command()
 async def createPoll(ctx, question: str, *options):
     if len(options) > 10:
         await ctx.send(f'{ctx.author.mention}, максимальное количество опций = 10')
     else:
-        embed = Embed(title="Poll",
+        embed = Embed(title="Новый опрос",
                       description=question,
                       colour=ctx.author.colour,
                       imestamp=datetime.utcnow())
@@ -219,7 +222,7 @@ async def leave(ctx):
 
 # выдача роли мута
 @bot.command()
-# @has_permissions(manage_roles=True, ban_members=True)
+@has_permissions(manage_roles=True, ban_members=True)
 async def mute(ctx, member: discord.Member):
     await ctx.message.delete()
     role_members = discord.utils.get(ctx.guild.roles, name='фолловер')
@@ -228,10 +231,17 @@ async def mute(ctx, member: discord.Member):
     await member.remove_roles(role_members)
     await ctx.send(f'{member.mention}, был замучен')
 
+# ошибка мута
+@mute.error
+async def mute_error(ctx, error):
+    if isinstance(error, MissingPermissions):
+        text = f"Прости {ctx.message.author.mention}, у тебя нет прав на это действие!"
+        await ctx.channel.send(text)
+
 
 # снятие роли мута
 @bot.command()
-# @has_permissions(MODERATE_MEMBERS=True)
+@has_permissions(manage_roles=True, ban_members=True)
 async def unmute(ctx, member: discord.Member):
     await ctx.message.delete()
     role_members = discord.utils.get(ctx.guild.roles, name='фолловер')
@@ -240,6 +250,14 @@ async def unmute(ctx, member: discord.Member):
     await member.add_roles(role_members)
     await ctx.send(f'{member.mention}, был размучен')
 
+# ошибка анмута
+@unmute.error
+async def unmute_error(ctx, error):
+    if isinstance(error, MissingPermissions):
+        text = f"Прости {ctx.message.author.mention}, у тебя нет прав на это действие!"
+        await ctx.channel.send(text)
+
+#  !donate
 @bot.command()
 async def donate(ctx):
     author = ctx.message.author
@@ -281,17 +299,30 @@ async def addons(ctx):
                    f'WR5zoTTdryE/view?usp=sharing')
 
 
-# !info
-@bot.command()
-async def admininfo(ctx):
-    author = ctx.message.author
-    await ctx.send(f'{author.mention}, команды бота для админа:\n1) !targetreset - удаление с выбранного'
-                   f' участника всех предупреждений\n2) !mute - выдача человеку роли мута+забирания роли фолловера'
-                   f'\n3) !unmute - выдача человеку роли фолловера и забирание роли мута'
-                   f'\n4) !youtube - ссылка на мой YouTube\n5) !addons '
-                   f'- ссылка на мои аддоны\n6) !donate - ссылка на пожертвование мне\n7) !status узнать количество'
-                   f' предупреждений')
+# выдача роли фолловера при вступлении
+@bot.event
+async def on_member_join(member):
+    await member.add_roles(member.guild.get_role(followerId))
+    await member.send('Привет я тут присматриваю за порядком, если нужна информация то пиши !info')
+    for ch in bot.get_guild(member.guild.id).channels:
+        if ch.name == 'основной':
+            await bot.get_channel(ch.id).send(f'{member.mention}, круто что ты с нами в лс инфо')
 
+
+# !admininfo
+@bot.command()
+@has_permissions(manage_roles=True, ban_members=True)
+async def admininfo(ctx):
+    await ctx.send(f'{ctx.message.author.mention}, команды бота для админа:\n1) !targetreset - удаление с выбранного'
+                   f' участника всех предупреждений\n2) !mute - выдача человеку роли мута+забирания роли фолловера'
+                   f'\n3) !unmute - выдача человеку роли фолловера и забирание роли мута')
+
+# ошибка анмута
+@admininfo.error
+async def admininfo_error(ctx, error):
+    if isinstance(error, MissingPermissions):
+        text = f"Прости {ctx.message.author.mention}, у тебя нет прав на это действие!"
+        await ctx.channel.send(text)
 
 # !info
 @bot.command()
@@ -302,20 +333,12 @@ async def info(ctx):
                    f' - ссылка на мою группу Вконтакте\n4) !createPoll - создание опроса(например - '
                    f'!createPoll "Как у вас сегодня дела?" Супер Круто Отлично\n5) !addons '
                    f'- ссылка на мои аддоны\n6) !donate - ссылка на пожертвование мне\n7) !status узнать количество'
-                   f' предупреждений')
+                   f' предупреждений\n8) !userstatus узнать количество предупреждений пользователя')
 
 
 # выдача роли фолловера
 followerId = 964547703482748959
 
-
-@bot.event
-async def on_member_join(member):
-    await member.add_roles(member.guild.get_role(followerId))
-    await member.send('Привет я тут присматриваю за порядком, если нужна информация то пиши !info')
-    for ch in bot.get_guild(member.guild.id).channels:
-        if ch.name == 'основной':
-            await bot.get_channel(ch.id).send(f'{member.mention}, круто что ты с нами в лс инфо')
 
 
 # проверка количества предупреждений !status
@@ -329,6 +352,18 @@ async def status(ctx):
         await ctx.send(f'{ctx.message.author.mention}, у Вас нет предупреждений!')
     else:
         await ctx.send(f'{ctx.message.author.mention}, количество Ваших предупреждений - {warning[1]}.')
+
+# Количество предупреждений пользователя
+@bot.command()
+async def userstatus(ctx, member: discord.Member):
+    base.execute('CREATE TABLE IF NOT EXISTS "{}"(userid INT, count INT)'.format(member.guild.name))
+    base.commit()
+    warning = cur.execute('SELECT * FROM "{}" WHERE userid == ? '.format(member.guild.name),
+                          (member.id,)).fetchone()
+    if warning == None:
+        await ctx.send(f'У {member.mention} нет предупреждений')
+    else:
+        await ctx.send(f'Количество предупреждений у {member.mention} на данный момент - {warning[1]} .')
 
 
 # модерация с использованием файла цензуры, файл to_json конвертирует тхт в джсон
@@ -376,21 +411,30 @@ async def on_message(message):
 
 # обнуление предупреждений !reset
 @bot.command()
-# @has_permissions(MODERATE_MEMBERS=True)
-async def reset(ctx):
-    base.execute('DELETE FROM "{}" WHERE userid == ?'.format(ctx.message.guild.name),
-                 (ctx.message.author.id,)).fetchone()
-    base.commit()
-    await ctx.channel.send(f'{ctx.author.mention}, твои предупреждения обнулены!')
-
-
-@bot.command()
-@has_permissions(moderate_roles=True, ban_members=True)
+@has_permissions(manage_roles=True, ban_members=True)
 async def targetreset(ctx, member: discord.Member):
     base.execute('DELETE FROM "{}" WHERE userid == ?'.format(member.guild.name),
                  (member.id,)).fetchone()
     base.commit()
     await ctx.channel.send(f'{member.mention} ваши предупреждения были обнулены')
 
+
+# ошибка сброса предупреждений
+@targetreset.error
+async def targetreset_error(ctx, error):
+    if isinstance(error, MissingPermissions):
+        text = f"Прости {ctx.message.author.mention}, у тебя нет прав на это действие!"
+        await ctx.channel.send(text)
+
+
+numbers = ("1️⃣", "2⃣", "3⃣", "4⃣", "5⃣","6⃣", "7⃣", "8⃣", "9⃣", "🔟")
+@bot.event
+async def on_reaction_add(reaction, user):
+    Channel = bot.get_channel(967119518566600755)
+    if reaction.message.channel.id != Channel.id:
+        return
+    if reaction.emoji == "1️⃣":
+      Role = discord.utils.get(user.server.roles, name="dk")
+      await user.add_roles(Role)
 
 bot.run(DiscordToken)
